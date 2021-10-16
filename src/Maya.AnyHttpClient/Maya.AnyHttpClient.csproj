@@ -20,6 +20,7 @@
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<Copyright>Salim Mayaleh</Copyright>
 		<RepositoryUrl>https://github.com/mayaleh/Maya.AnyHttpClient</RepositoryUrl>
+		<PackageProjectUrl>https://mayaleh.github.io/Maya.AnyHttpClient</PackageProjectUrl>
 	</PropertyGroup>
 
 	<ItemGroup>
