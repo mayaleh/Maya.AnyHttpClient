@@ -12,4 +12,4 @@ PM> Install-Package Maya.AnyHttpClient
 
 
 ## Usages
-[Introduction](https://mayaleh.github.io/Maya.AnyHttpClient/articles/intro.html)
+[Introduction](https://mayaleh.github.io/Maya.AnyHttpClient/articles/index.html)
