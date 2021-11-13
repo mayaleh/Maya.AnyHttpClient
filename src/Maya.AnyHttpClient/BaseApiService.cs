@@ -41,7 +41,7 @@ namespace Maya.AnyHttpClient
             {
                 var httpClientHandler = CreateHttpClientHanler();
 
-                using (var client = CreateHttpClient(httpClientHandler, this.HttpClientConnenctor))
+                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
                 {
                     
                     if (acceptJson)
@@ -49,13 +49,24 @@ namespace Maya.AnyHttpClient
                         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                     }
 
-                    AddConfiguredWrapper(client, this.HttpClientConnenctor, null);
+                    AddConfiguredWrapper(client, HttpClientConnenctor, null);
+
+                    if (typeof(T) == typeof(byte[]))
+                    {
+                        var result = await client.GetByteArrayAsync(uri);
+                        return Result<T, Exception>.Succeeded((T)Convert.ChangeType(result, typeof(T)));
+                    }
 
                     var httpResponseMessage = await client.GetAsync(uri);
 
                     if (httpResponseMessage.IsSuccessStatusCode)
                     {
                         var content = await httpResponseMessage.Content.ReadAsStringAsync();
+
+                        if (typeof(T) == typeof(string))
+                        {
+                            return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
+                        }
 
                         T reusultData = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
 
@@ -64,9 +75,9 @@ namespace Maya.AnyHttpClient
 
                     //var apiException = await ProcessFailedHttpResponseMessageAsync(httpResponseMessage, uri.AbsoluteUri, null);
 
-                    if (this.Logger != null)
+                    if (Logger != null)
                     {
-                        this.Logger?.LogError($"action=BaseApiService.HttpGet, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                        Logger?.LogError($"action=BaseApiService.HttpGet, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
                     }
 
                     return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -76,20 +87,20 @@ namespace Maya.AnyHttpClient
             {
                 if (ex.CancellationToken.IsCancellationRequested)
                 {
-                    this.Logger?.LogError(ex, $"action=BaseApiService.HttpGet({uri}), message=Request was Canceled: {ex.Message}");
+                    Logger?.LogError(ex, $"action=BaseApiService.HttpGet({uri}), message=Request was Canceled: {ex.Message}");
 
                     return Result<T, Exception>.Failed(ex);
                 }
 
-                this.Logger?.LogError(ex, $"action=BaseApiService.HttpGet, message=Request reached timeout: {ex.Message}");
+                Logger?.LogError(ex, $"action=BaseApiService.HttpGet, message=Request reached timeout: {ex.Message}");
 
                 return Result<T, Exception>.Failed(ex);
             }
             catch (Exception e)
             {
-                if (this.Logger != null)
+                if (Logger != null)
                 {
-                    this.Logger?.LogError(e, $"action=BaseApiService.HttpGet({uri}), message={e.Message}");
+                    Logger?.LogError(e, $"action=BaseApiService.HttpGet({uri}), message={e.Message}");
                 }
 
                 return Result<T, Exception>.Failed(e);
@@ -111,9 +122,9 @@ namespace Maya.AnyHttpClient
             {
                 var httpClientHandler = CreateHttpClientHanler();
 
-                using (var client = CreateHttpClient(httpClientHandler, this.HttpClientConnenctor))
+                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
                 {
-                    var bodyContent = AddConfiguredWrapper(client, this.HttpClientConnenctor, data);
+                    var bodyContent = AddConfiguredWrapper(client, HttpClientConnenctor, data);
 
                     using (var message = new HttpRequestMessage(HttpMethod.Post, uri)
                     {
@@ -127,6 +138,12 @@ namespace Maya.AnyHttpClient
 
                         if (httpResponseMessage.IsSuccessStatusCode)
                         {
+                            if (typeof(T) == typeof(byte[]))
+                            {
+                                var result = await httpResponseMessage.Content.ReadAsByteArrayAsync();
+                                return Result<T, Exception>.Succeeded((T)Convert.ChangeType(result, typeof(T)));
+                            }
+
                             content = await httpResponseMessage.Content.ReadAsStringAsync();
 
                             if (typeof(T) == typeof(string))
@@ -148,9 +165,9 @@ namespace Maya.AnyHttpClient
 
                         //var apiException = await ProcessFailedHttpResponseMessageAsync(httpResponseMessage, uri.AbsoluteUri, null);
 
-                        if (this.Logger != null)
+                        if (Logger != null)
                         {
-                            this.Logger?.LogError($"action={logAction}, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                            Logger?.LogError($"action={logAction}, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -161,18 +178,18 @@ namespace Maya.AnyHttpClient
             {
                 if (ex.CancellationToken.IsCancellationRequested)
                 {
-                    this.Logger?.LogError(ex, $"action={logAction}, message=Request was Canceled: {ex.Message}");
+                    Logger?.LogError(ex, $"action={logAction}, message=Request was Canceled: {ex.Message}");
 
                     return Result<T, Exception>.Failed(ex);
                 }
 
-                this.Logger?.LogError(ex, $"action={logAction}, message=Request reached timeout: {ex.Message}");
+                Logger?.LogError(ex, $"action={logAction}, message=Request reached timeout: {ex.Message}");
 
                 return Result<T, Exception>.Failed(ex);
             }
             catch (Exception e)
             {
-                this.Logger?.LogError(e, $"action={logAction}, message={e.Message}, content={content}");
+                Logger?.LogError(e, $"action={logAction}, message={e.Message}, content={content}");
 
                 return Result<T, Exception>.Failed(e);
             }
@@ -192,9 +209,9 @@ namespace Maya.AnyHttpClient
             {
                 var httpClientHandler = CreateHttpClientHanler();
 
-                using (var client = CreateHttpClient(httpClientHandler, this.HttpClientConnenctor))
+                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
                 {
-                    var bodyContent = AddConfiguredWrapper(client, this.HttpClientConnenctor, data);
+                    var bodyContent = AddConfiguredWrapper(client, HttpClientConnenctor, data);
 
                     using (var message = new HttpRequestMessage(HttpMethod.Put, uri)
                     {
@@ -229,9 +246,9 @@ namespace Maya.AnyHttpClient
 
                         //var apiException = await ProcessFailedHttpResponseMessageAsync(httpResponseMessage, uri.AbsoluteUri, null);
 
-                        if (this.Logger != null)
+                        if (Logger != null)
                         {
-                            this.Logger?.LogError($"action=BaseApiService.HttpPut, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                            Logger?.LogError($"action=BaseApiService.HttpPut, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -242,18 +259,18 @@ namespace Maya.AnyHttpClient
             {
                 if (ex.CancellationToken.IsCancellationRequested)
                 {
-                    this.Logger?.LogError(ex, $"action=BaseApiService.HttpPut, message=Request was Canceled: {ex.Message}");
+                    Logger?.LogError(ex, $"action=BaseApiService.HttpPut, message=Request was Canceled: {ex.Message}");
 
                     return Result<T, Exception>.Failed(ex);
                 }
 
-                this.Logger?.LogError(ex, $"action=BaseApiService.HttpPut, message=Request reached timeout: {ex.Message}");
+                Logger?.LogError(ex, $"action=BaseApiService.HttpPut, message=Request reached timeout: {ex.Message}");
 
                 return Result<T, Exception>.Failed(ex);
             }
             catch (Exception e)
             {
-                this.Logger?.LogError(e, $"action=BaseApiService.HttpPut, message={e.Message}");
+                Logger?.LogError(e, $"action=BaseApiService.HttpPut, message={e.Message}");
 
                 return Result<T, Exception>.Failed(e);
             }
