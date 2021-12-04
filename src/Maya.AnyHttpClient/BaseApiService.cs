@@ -138,6 +138,11 @@ namespace Maya.AnyHttpClient
 
                         if (httpResponseMessage.IsSuccessStatusCode)
                         {
+                            if (typeof(T) == typeof(Maya.Ext.Unit)) // void is not value type, this is for response, that has not any body response
+                            {
+                                return Result<T, Exception>.Succeeded((T)Convert.ChangeType(Maya.Ext.Unit.Default, typeof(T)));
+                            }
+
                             if (typeof(T) == typeof(byte[]))
                             {
                                 var result = await httpResponseMessage.Content.ReadAsByteArrayAsync();
@@ -225,6 +230,11 @@ namespace Maya.AnyHttpClient
 
                         if (httpResponseMessage.IsSuccessStatusCode)
                         {
+                            if (typeof(T) == typeof(Maya.Ext.Unit)) // void is not value type, this is for response, that has not any body response
+                            {
+                                return Result<T, Exception>.Succeeded((T)Convert.ChangeType(Maya.Ext.Unit.Default, typeof(T)));
+                            }
+
                             var content = await httpResponseMessage.Content.ReadAsStringAsync();
 
                             if (typeof(T) == typeof(String))
