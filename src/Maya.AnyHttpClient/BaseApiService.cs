@@ -1,17 +1,8 @@
-﻿using Maya.AnyHttpClient.Model;
-
-using Microsoft.Extensions.Logging;
-
-using Maya.Ext;
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text;
-using System.Threading.Tasks;
+using Maya.AnyHttpClient.Model;
 using Maya.Ext.Rop;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Maya.AnyHttpClient
@@ -26,6 +17,18 @@ namespace Maya.AnyHttpClient
         public BaseApiService(IHttpClientConnector httpClientConnenctor)
         {
             HttpClientConnenctor = httpClientConnenctor;
+        }
+
+        public BaseApiService WithLogger(ILogger logger)
+        {
+            if (logger is null)
+            {
+                throw new ArgumentNullException(nameof(logger));
+            }
+
+            Logger = logger;
+
+            return this;
         }
 
         /// <summary>
@@ -43,7 +46,7 @@ namespace Maya.AnyHttpClient
 
                 using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
                 {
-                    
+
                     if (acceptJson)
                     {
                         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -114,7 +117,7 @@ namespace Maya.AnyHttpClient
         /// <param name="uri"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        protected async Task<Result<T, Exception>> HttpPost<T>(Uri uri, object data, Func<HttpResponseMessage, Exception> onError = null)
+        protected async Task<Result<T, Exception>> HttpPost<T>(Uri uri, object data, Func<HttpResponseMessage, Exception>? onError = null)
         {
             var logAction = $"{nameof(BaseApiService)}.{nameof(BaseApiService.HttpPost)}";
             var content = "";
@@ -286,15 +289,95 @@ namespace Maya.AnyHttpClient
             }
         }
 
+        /// <summary>
+        /// HTTP Delete Request
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="uri"></param>
+        /// <param name="acceptJson"></param>
+        /// <returns></returns>
+        protected async Task<Result<T, Exception>> HttpDelete<T>(Uri uri, bool acceptJson = false)
+        {
+            var logAction = nameof(BaseApiService) + "." + nameof(BaseApiService.HttpDelete);
+            try
+            {
+                var httpClientHandler = CreateHttpClientHanler();
+
+                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                {
+
+                    if (acceptJson)
+                    {
+                        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    }
+
+                    AddConfiguredWrapper(client, HttpClientConnenctor, null);
+
+                    var httpResponseMessage = await client.DeleteAsync(uri);
+
+                    if (httpResponseMessage.IsSuccessStatusCode)
+                    {
+                        if (typeof(T) == typeof(Maya.Ext.Unit)) // void is not value type, this is for response, that has not any body response
+                        {
+                            return Result<T, Exception>.Succeeded((T)Convert.ChangeType(Maya.Ext.Unit.Default, typeof(T)));
+                        }
+
+                        var content = await httpResponseMessage.Content.ReadAsStringAsync();
+
+                        if (typeof(T) == typeof(string))
+                        {
+                            return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
+                        }
+
+                        T reusultData = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
+
+                        return Result<T, Exception>.Succeeded(reusultData);
+                    }
+
+                    //var apiException = await ProcessFailedHttpResponseMessageAsync(httpResponseMessage, uri.AbsoluteUri, null);
+
+                    if (Logger != null)
+                    {
+                        Logger?.LogError($"action={logAction}, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                    }
+
+                    return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
+                }
+            }
+            catch (TaskCanceledException ex)
+            {
+                if (ex.CancellationToken.IsCancellationRequested)
+                {
+                    Logger?.LogError(ex, $"action={logAction}({uri}), message=Request was Canceled: {ex.Message}");
+
+                    return Result<T, Exception>.Failed(ex);
+                }
+
+                Logger?.LogError(ex, $"action={logAction}, message=Request reached timeout: {ex.Message}");
+
+                return Result<T, Exception>.Failed(ex);
+            }
+            catch (Exception e)
+            {
+                if (Logger != null)
+                {
+                    Logger?.LogError(e, $"action={logAction}({uri}), message={e.Message}");
+                }
+
+                return Result<T, Exception>.Failed(e);
+            }
+        }
+
         public static Uri ComposeUri(string endpoint, IEnumerable<string> actions, params KeyValuePair<string, string>[] queryParameters)
         {
             var uriBuilder = new UriBuilder(ComposeUrl(endpoint, actions));
 
             if (queryParameters.Any())
             {
-                var parameters = System.Web.HttpUtility.ParseQueryString(String.Empty);
+                var parameters = System.Web.HttpUtility.ParseQueryString(string.Empty);
 
-                queryParameters.ToList().ForEach(p => parameters[p.Key] = p.Value);
+                queryParameters.ToList()
+                    .ForEach(p => parameters[p.Key] = p.Value);
 
                 uriBuilder.Query = parameters.ToString();
             }
@@ -330,7 +413,10 @@ namespace Maya.AnyHttpClient
 
         private static string AddConfiguredWrapper(HttpClient httpClient, IHttpClientConnector httpClientConnector, object data)
         {
-            if (httpClientConnector == null) throw new ArgumentNullException(nameof(httpClientConnector));
+            if (httpClientConnector == null)
+            {
+                throw new ArgumentNullException(nameof(httpClientConnector));
+            }
 
             AddAuth(httpClient, httpClientConnector);
             AddHeaders(httpClient, httpClientConnector);
@@ -362,7 +448,7 @@ namespace Maya.AnyHttpClient
                 var token = CreateToken(httpClientConnector.UserName, httpClientConnector.Password);
                 httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
                 return;
-            }            
+            }
         }
 
         private static void AddHeaders(HttpClient httpClient, IHttpClientConnector httpClientConnector)
@@ -384,7 +470,7 @@ namespace Maya.AnyHttpClient
 
                 var json = JsonConvert.SerializeObject(data);
                 var dictionary = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-                
+
                 foreach (var prop in httpClientConnector.BodyProperties)
                 {
                     dictionary.Add(prop.Name, prop.Value);
