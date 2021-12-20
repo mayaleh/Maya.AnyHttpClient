@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Text;
+using Maya.AnyHttpClient.Helpers;
 using Maya.AnyHttpClient.Model;
 using Maya.Ext.Rop;
 using Microsoft.Extensions.Logging;
@@ -7,20 +8,18 @@ using Newtonsoft.Json;
 
 namespace Maya.AnyHttpClient
 {
-    [Obsolete(message: "This class will be removed in future versions. Instead, use Maya.AnyHttpClient.ApiService")]
-    public class BaseApiService
+    public class ApiService
     {
         protected IHttpClientConnector HttpClientConnenctor { get; }
 
-        protected ILogger Logger { get; set; }
+        protected ILogger? Logger { get; set; }
 
-
-        public BaseApiService(IHttpClientConnector httpClientConnenctor)
+        public ApiService(IHttpClientConnector httpClientConnenctor)
         {
             HttpClientConnenctor = httpClientConnenctor;
         }
 
-        public BaseApiService WithLogger(ILogger logger)
+        public ApiService WithLogger(ILogger logger)
         {
             if (logger is null)
             {
@@ -32,6 +31,7 @@ namespace Maya.AnyHttpClient
             return this;
         }
 
+
         /// <summary>
         /// HTTP GET Request.
         /// </summary>
@@ -39,13 +39,27 @@ namespace Maya.AnyHttpClient
         /// <param name="uri"></param>
         /// <param name="acceptJson"></param>
         /// <returns></returns>
-        protected async Task<Result<T, Exception>> HttpGet<T>(Uri uri, bool acceptJson = false)
+        protected async Task<Result<T, Exception>> HttpGet<T>(UriRequest uriRequest, bool acceptJson = false)
         {
             try
             {
-                var httpClientHandler = CreateHttpClientHanler();
+                if (uriRequest == null)
+                {
+                    return Result<T, Exception>.Failed(new ArgumentNullException(nameof(uriRequest)));
+                }
 
-                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                Uri? uri = null;
+
+                var isValidUri = uriRequest.TryGetUri(HttpClientConnenctor.Endpoint, out uri);
+
+                if (isValidUri == false)
+                {
+                    return Result<T, Exception>.Failed(new Exception("Invalid uriRequest"));
+                }
+
+                var httpClientHandler = HttpHelper.CreateHttpClientHanler();
+
+                using (var client = HttpHelper.CreateHttpClient(httpClientHandler, HttpClientConnenctor))
                 {
 
                     if (acceptJson)
@@ -53,7 +67,7 @@ namespace Maya.AnyHttpClient
                         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                     }
 
-                    AddConfiguredWrapper(client, HttpClientConnenctor, null);
+                    HttpHelper.AddConfiguredWrapper(client, HttpClientConnenctor, null);
 
                     if (typeof(T) == typeof(byte[]))
                     {
@@ -81,7 +95,7 @@ namespace Maya.AnyHttpClient
 
                     if (Logger != null)
                     {
-                        Logger?.LogError($"action=BaseApiService.HttpGet, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                        Logger?.LogError($"action=ApiService.HttpGet, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
                     }
 
                     return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -91,12 +105,12 @@ namespace Maya.AnyHttpClient
             {
                 if (ex.CancellationToken.IsCancellationRequested)
                 {
-                    Logger?.LogError(ex, $"action=BaseApiService.HttpGet({uri}), message=Request was Canceled: {ex.Message}");
+                    Logger?.LogError(ex, $"action=ApiService.HttpGet({uriRequest}), message=Request was Canceled: {ex.Message}");
 
                     return Result<T, Exception>.Failed(ex);
                 }
 
-                Logger?.LogError(ex, $"action=BaseApiService.HttpGet, message=Request reached timeout: {ex.Message}");
+                Logger?.LogError(ex, $"action=ApiService.HttpGet, message=Request reached timeout: {ex.Message}");
 
                 return Result<T, Exception>.Failed(ex);
             }
@@ -104,7 +118,7 @@ namespace Maya.AnyHttpClient
             {
                 if (Logger != null)
                 {
-                    Logger?.LogError(e, $"action=BaseApiService.HttpGet({uri}), message={e.Message}");
+                    Logger?.LogError(e, $"action=ApiService.HttpGet({uriRequest}), message={e.Message}");
                 }
 
                 return Result<T, Exception>.Failed(e);
@@ -118,17 +132,31 @@ namespace Maya.AnyHttpClient
         /// <param name="uri"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        protected async Task<Result<T, Exception>> HttpPost<T>(Uri uri, object data, Func<HttpResponseMessage, Exception>? onError = null)
+        protected async Task<Result<T, Exception>> HttpPost<T>(UriRequest uriRequest, object data, Func<HttpResponseMessage, Exception>? onError = null)
         {
-            var logAction = $"{nameof(BaseApiService)}.{nameof(BaseApiService.HttpPost)}";
+            var logAction = $"{nameof(ApiService)}.{nameof(ApiService.HttpPost)}";
             var content = "";
             try
             {
-                var httpClientHandler = CreateHttpClientHanler();
-
-                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                if (uriRequest == null)
                 {
-                    var bodyContent = AddConfiguredWrapper(client, HttpClientConnenctor, data);
+                    return Result<T, Exception>.Failed(new ArgumentNullException(nameof(uriRequest)));
+                }
+
+                Uri? uri = null;
+
+                var isValidUri = uriRequest.TryGetUri(HttpClientConnenctor.Endpoint, out uri);
+
+                if (isValidUri == false)
+                {
+                    return Result<T, Exception>.Failed(new Exception("Invalid uriRequest"));
+                }
+
+                var httpClientHandler = HttpHelper.CreateHttpClientHanler();
+
+                using (var client = HttpHelper.CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                {
+                    var bodyContent = HttpHelper.AddConfiguredWrapper(client, HttpClientConnenctor, data);
 
                     using (var message = new HttpRequestMessage(HttpMethod.Post, uri)
                     {
@@ -212,15 +240,29 @@ namespace Maya.AnyHttpClient
         /// <param name="data"></param>
         /// <param name="onError"></param>
         /// <returns></returns>
-        protected async Task<Result<T, Exception>> HttpPut<T>(Uri uri, object data, Func<HttpResponseMessage, Exception> onError = null)
+        protected async Task<Result<T, Exception>> HttpPut<T>(UriRequest uriRequest, object data, Func<HttpResponseMessage, Exception>? onError = null)
         {
             try
             {
-                var httpClientHandler = CreateHttpClientHanler();
-
-                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                if (uriRequest == null)
                 {
-                    var bodyContent = AddConfiguredWrapper(client, HttpClientConnenctor, data);
+                    return Result<T, Exception>.Failed(new ArgumentNullException(nameof(uriRequest)));
+                }
+
+                Uri? uri = null;
+
+                var isValidUri = uriRequest.TryGetUri(HttpClientConnenctor.Endpoint, out uri);
+
+                if (isValidUri == false)
+                {
+                    return Result<T, Exception>.Failed(new Exception("Invalid uriRequest"));
+                }
+
+                var httpClientHandler = HttpHelper.CreateHttpClientHanler();
+
+                using (var client = HttpHelper.CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                {
+                    var bodyContent = HttpHelper.AddConfiguredWrapper(client, HttpClientConnenctor, data);
 
                     using (var message = new HttpRequestMessage(HttpMethod.Put, uri)
                     {
@@ -262,7 +304,7 @@ namespace Maya.AnyHttpClient
 
                         if (Logger != null)
                         {
-                            Logger?.LogError($"action=BaseApiService.HttpPut, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                            Logger?.LogError($"action=ApiService.HttpPut, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -273,18 +315,18 @@ namespace Maya.AnyHttpClient
             {
                 if (ex.CancellationToken.IsCancellationRequested)
                 {
-                    Logger?.LogError(ex, $"action=BaseApiService.HttpPut, message=Request was Canceled: {ex.Message}");
+                    Logger?.LogError(ex, $"action=ApiService.HttpPut, message=Request was Canceled: {ex.Message}");
 
                     return Result<T, Exception>.Failed(ex);
                 }
 
-                Logger?.LogError(ex, $"action=BaseApiService.HttpPut, message=Request reached timeout: {ex.Message}");
+                Logger?.LogError(ex, $"action=ApiService.HttpPut, message=Request reached timeout: {ex.Message}");
 
                 return Result<T, Exception>.Failed(ex);
             }
             catch (Exception e)
             {
-                Logger?.LogError(e, $"action=BaseApiService.HttpPut, message={e.Message}");
+                Logger?.LogError(e, $"action=ApiService.HttpPut, message={e.Message}");
 
                 return Result<T, Exception>.Failed(e);
             }
@@ -297,14 +339,28 @@ namespace Maya.AnyHttpClient
         /// <param name="uri"></param>
         /// <param name="acceptJson"></param>
         /// <returns></returns>
-        protected async Task<Result<T, Exception>> HttpDelete<T>(Uri uri, bool acceptJson = false)
+        protected async Task<Result<T, Exception>> HttpDelete<T>(UriRequest uriRequest, bool acceptJson = false)
         {
-            var logAction = nameof(BaseApiService) + "." + nameof(BaseApiService.HttpDelete);
+            var logAction = nameof(ApiService) + "." + nameof(ApiService.HttpDelete);
             try
             {
-                var httpClientHandler = CreateHttpClientHanler();
+                if (uriRequest == null)
+                {
+                    return Result<T, Exception>.Failed(new ArgumentNullException(nameof(uriRequest)));
+                }
 
-                using (var client = CreateHttpClient(httpClientHandler, HttpClientConnenctor))
+                Uri? uri = null;
+
+                var isValidUri = uriRequest.TryGetUri(HttpClientConnenctor.Endpoint, out uri);
+
+                if (isValidUri == false)
+                {
+                    return Result<T, Exception>.Failed(new Exception("Invalid uriRequest"));
+                }
+
+                var httpClientHandler = HttpHelper.CreateHttpClientHanler();
+
+                using (var client = HttpHelper.CreateHttpClient(httpClientHandler, HttpClientConnenctor))
                 {
 
                     if (acceptJson)
@@ -312,7 +368,7 @@ namespace Maya.AnyHttpClient
                         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                     }
 
-                    AddConfiguredWrapper(client, HttpClientConnenctor, null);
+                    HttpHelper.AddConfiguredWrapper(client, HttpClientConnenctor, null);
 
                     var httpResponseMessage = await client.DeleteAsync(uri);
 
@@ -349,7 +405,7 @@ namespace Maya.AnyHttpClient
             {
                 if (ex.CancellationToken.IsCancellationRequested)
                 {
-                    Logger?.LogError(ex, $"action={logAction}({uri}), message=Request was Canceled: {ex.Message}");
+                    Logger?.LogError(ex, $"action={logAction}({uriRequest}), message=Request was Canceled: {ex.Message}");
 
                     return Result<T, Exception>.Failed(ex);
                 }
@@ -362,165 +418,11 @@ namespace Maya.AnyHttpClient
             {
                 if (Logger != null)
                 {
-                    Logger?.LogError(e, $"action={logAction}({uri}), message={e.Message}");
+                    Logger?.LogError(e, $"action={logAction}({uriRequest}), message={e.Message}");
                 }
 
                 return Result<T, Exception>.Failed(e);
             }
-        }
-
-        /// <summary>
-        /// Creates URI from current Endpoint settings and input params like actions and query params
-        /// This URI is for sending an HTTP request
-        /// </summary>
-        /// <param name="actions"></param>
-        /// <param name="queryParameters"></param>
-        /// <returns></returns>
-        protected Uri ComposeUri(IEnumerable<string> actions, params KeyValuePair<string, string>[] queryParameters)
-        {
-            var uriBuilder = new UriBuilder(ComposeUrl(this.HttpClientConnenctor.Endpoint, actions));
-
-            if (queryParameters.Any())
-            {
-                var parameters = System.Web.HttpUtility.ParseQueryString(string.Empty);
-
-                queryParameters.ToList()
-                    .ForEach(p => parameters[p.Key] = p.Value);
-
-                uriBuilder.Query = parameters.ToString();
-            }
-
-            return uriBuilder.Uri;
-        }
-
-        private static string ComposeUrl(string endpoint, IEnumerable<string> actions)
-        {
-            if (!actions.Any()) return endpoint;
-
-            var list = new List<string> { endpoint };
-
-            list.AddRange(actions);
-
-            var tmp = list.Select(x =>
-            {
-                if (x.StartsWith('/') || x.StartsWith('\\'))
-                {
-                    x = x.Substring(1);
-                }
-
-                if (x.EndsWith('/') || x.EndsWith('\\'))
-                {
-                    x = x[0..^1];
-                }
-
-                return x;
-            });
-
-            return String.Join("/", tmp);
-        }
-
-        private static string AddConfiguredWrapper(HttpClient httpClient, IHttpClientConnector httpClientConnector, object data)
-        {
-            if (httpClientConnector == null)
-            {
-                throw new ArgumentNullException(nameof(httpClientConnector));
-            }
-
-            AddAuth(httpClient, httpClientConnector);
-            AddHeaders(httpClient, httpClientConnector);
-
-            return ExtendBody(httpClientConnector, data);
-        }
-
-        private static void AddAuth(HttpClient httpClient, IHttpClientConnector httpClientConnector)
-        {
-            if (string.IsNullOrEmpty(httpClientConnector.AuthType))
-            {
-                return;
-            }
-
-            if (httpClientConnector.AuthType == AuthTypeKinds.Basic)
-            {
-                if (string.IsNullOrEmpty(httpClientConnector.UserName)) throw new ArgumentNullException(nameof(httpClientConnector.UserName));
-                if (string.IsNullOrEmpty(httpClientConnector.Password)) throw new ArgumentNullException(nameof(httpClientConnector.Password));
-
-                var token = CreateToken(httpClientConnector.UserName, httpClientConnector.Password);
-                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", token);
-                return;
-            }
-
-            if (httpClientConnector.AuthType == AuthTypeKinds.Bearer)
-            {
-                if (string.IsNullOrEmpty(httpClientConnector.Token)) throw new ArgumentNullException(nameof(httpClientConnector.Token));
-
-                var token = CreateToken(httpClientConnector.UserName, httpClientConnector.Password);
-                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                return;
-            }
-        }
-
-        private static void AddHeaders(HttpClient httpClient, IHttpClientConnector httpClientConnector)
-        {
-            if (httpClientConnector.Headers != null && httpClientConnector.Headers.Any())
-            {
-                foreach (var header in httpClientConnector.Headers)
-                {
-                    httpClient.DefaultRequestHeaders.Add(header.Name, header.Value);
-                }
-            }
-        }
-
-        private static string ExtendBody(IHttpClientConnector httpClientConnector, object data)
-        {
-            if (httpClientConnector.BodyProperties != null && httpClientConnector.BodyProperties.Any())
-            {
-                data = data ?? new { };
-
-                var json = JsonConvert.SerializeObject(data);
-                var dictionary = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-
-                foreach (var prop in httpClientConnector.BodyProperties)
-                {
-                    dictionary.Add(prop.Name, prop.Value);
-                }
-
-                data = dictionary;
-            }
-
-            return (data == null) ? null : Newtonsoft.Json.JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.None,
-                new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore
-                });
-        }
-
-        private static string CreateToken(string username, string password)
-        {
-            if (String.IsNullOrEmpty(username)) throw new ArgumentNullException(nameof(username));
-            if (String.IsNullOrEmpty(password)) throw new ArgumentNullException(nameof(password));
-
-            return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{username}:{password}"));
-        }
-
-        private static HttpClientHandler CreateHttpClientHanler()
-        {
-#if DEBUG
-            var httpClientHandler = new HttpClientHandler();
-            // Return `true` to allow certificates that are untrusted/invalid
-            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-#else
-            var httpClientHandler = new HttpClientHandler();
-#endif
-            return httpClientHandler;
-        }
-
-        private static HttpClient CreateHttpClient(HttpClientHandler httpClientHandler, IHttpClientConnector httpClientConnector)
-        {
-            var httpClient = new HttpClient(httpClientHandler);
-
-            httpClient.Timeout = TimeSpan.FromSeconds(httpClientConnector.TimeoutSeconds);
-
-            return httpClient;
         }
     }
 }

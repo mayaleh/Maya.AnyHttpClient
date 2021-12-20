@@ -4,7 +4,7 @@ namespace Maya.AnyHttpClient.Model
 {
     public class HttpClientConnector : IHttpClientConnector
     {
-        public string Endpoint { get; set; }
+        public string Endpoint { get; set; } // todo use this...
 
         public string Token { get; set; }
 
