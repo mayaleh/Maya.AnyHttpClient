@@ -64,10 +64,10 @@ var httpConfig = new Maya.AnyHttpClient.Model.HttpClientConnector
     TimeoutSeconds = 30,
 };
 
-var httpClient = new Maya.AnyHttpClient.BaseClient(httpConfig);
+var httpClient = new Maya.AnyHttpClient.ApiService(httpConfig);
 ```
 
-Lets create the response model class:
+Now, just add the response model class:
 
 ```c#
 public class Result
@@ -79,7 +79,7 @@ public class Result
 ```
 
 
-Now, we are able to call the POST `/foo` API method to create the row:
+We are able now to call the POST `/foo` API method to create the row:
 
 ```c#
 public async Task CreateFoo(string name)
@@ -87,10 +87,10 @@ public async Task CreateFoo(string name)
     try
     {
         // this will build the endpoint uri, no needed to keeping attention to the slashes  
-        var uri = Maya.AnyHttpClient.BaseApiService.ComposeUri(httpClient.HttpClientConnenctor.Endpoint, new List<string> { "foo" });
+        var uriRequest = new Maya.AnyHttpClient.Model.UriRequest(new string[] { "foo" });
 
         // call the api method POST and get the result type
-        var result = await this.HttpPost<Result>(uri, new() { name = name })
+        var result = await this.httpClient.HttpPost<Result>(uriRequest, new() { name = name })
             .ConfigureAwait(false);
         
         if(result == null)
