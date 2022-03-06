@@ -4,7 +4,10 @@ using Maya.AnyHttpClient.Helpers;
 using Maya.AnyHttpClient.Model;
 using Maya.Ext.Rop;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System;
+using System.Threading.Tasks;
+using System.Net.Http;
 
 namespace Maya.AnyHttpClient
 {
@@ -86,7 +89,7 @@ namespace Maya.AnyHttpClient
                             return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                         }
 
-                        T reusultData = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
+                        T reusultData = JsonSerializer.Deserialize<T>(content);
 
                         return Result<T, Exception>.Succeeded(reusultData);
                     }
@@ -95,7 +98,7 @@ namespace Maya.AnyHttpClient
 
                     if (Logger != null)
                     {
-                        Logger?.LogError($"action=ApiService.HttpGet, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                        Logger?.LogError($"action=ApiService.HttpGet, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
                     }
 
                     return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -188,7 +191,7 @@ namespace Maya.AnyHttpClient
                                 return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                             }
 
-                            T reusultData = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
+                            T reusultData = JsonSerializer.Deserialize<T>(content);
 
                             return Result<T, Exception>.Succeeded(reusultData);
                         }
@@ -204,7 +207,7 @@ namespace Maya.AnyHttpClient
 
                         if (Logger != null)
                         {
-                            Logger?.LogError($"action={logAction}, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                            Logger?.LogError($"action={logAction}, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -288,7 +291,7 @@ namespace Maya.AnyHttpClient
                                 return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                             }
 
-                            T reusultData = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
+                            T reusultData = JsonSerializer.Deserialize<T>(content);
 
                             return Result<T, Exception>.Succeeded(reusultData);
                         }
@@ -304,7 +307,7 @@ namespace Maya.AnyHttpClient
 
                         if (Logger != null)
                         {
-                            Logger?.LogError($"action=ApiService.HttpPut, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                            Logger?.LogError($"action=ApiService.HttpPut, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -386,7 +389,7 @@ namespace Maya.AnyHttpClient
                             return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                         }
 
-                        T reusultData = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
+                        T reusultData = JsonSerializer.Deserialize<T>(content);
 
                         return Result<T, Exception>.Succeeded(reusultData);
                     }
@@ -395,7 +398,7 @@ namespace Maya.AnyHttpClient
 
                     if (Logger != null)
                     {
-                        Logger?.LogError($"action={logAction}, apiException={Newtonsoft.Json.JsonConvert.SerializeObject(httpResponseMessage)}");
+                        Logger?.LogError($"action={logAction}, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
                     }
 
                     return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));

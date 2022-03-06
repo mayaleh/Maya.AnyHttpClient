@@ -1,9 +1,13 @@
-﻿using System.Net.Http.Headers;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using Maya.AnyHttpClient.Model;
 using Maya.Ext.Rop;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace Maya.AnyHttpClient.Helpers
 {
@@ -32,10 +36,10 @@ namespace Maya.AnyHttpClient.Helpers
                 return x;
             });
 
-            return String.Join("/", tmp);
+            return string.Join("/", tmp);
         }
 
-        internal static string AddConfiguredWrapper(HttpClient httpClient, IHttpClientConnector httpClientConnector, object data)
+        internal static string? AddConfiguredWrapper(HttpClient httpClient, IHttpClientConnector httpClientConnector, object data)
         {
             if (httpClientConnector == null)
             {
@@ -55,11 +59,22 @@ namespace Maya.AnyHttpClient.Helpers
                 return;
             }
 
+            // validate
+            if (string.IsNullOrEmpty(httpClientConnector.UserName) &&
+                string.IsNullOrEmpty(httpClientConnector.Password) &&
+                string.IsNullOrEmpty(httpClientConnector.Token))
+            {
+                throw new ArgumentNullException("Access token or credentials data is required! (Token, UserName, Password)");
+            }
+
             if (httpClientConnector.AuthType == AuthTypeKinds.Basic)
             {
-                if (string.IsNullOrEmpty(httpClientConnector.UserName)) throw new ArgumentNullException(nameof(httpClientConnector.UserName));
-                if (string.IsNullOrEmpty(httpClientConnector.Password)) throw new ArgumentNullException(nameof(httpClientConnector.Password));
-
+                if (string.IsNullOrEmpty(httpClientConnector.Token) == false) // prefer the token
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", httpClientConnector.Token);
+                    return;
+                }
+                // or generate the token
                 var token = CreateToken(httpClientConnector.UserName, httpClientConnector.Password);
                 httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", token);
                 return;
@@ -67,7 +82,11 @@ namespace Maya.AnyHttpClient.Helpers
 
             if (httpClientConnector.AuthType == AuthTypeKinds.Bearer)
             {
-                if (string.IsNullOrEmpty(httpClientConnector.Token)) throw new ArgumentNullException(nameof(httpClientConnector.Token));
+                if (string.IsNullOrEmpty(httpClientConnector.Token) == false)
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", httpClientConnector.Token);
+                    return;
+                }
 
                 var token = CreateToken(httpClientConnector.UserName, httpClientConnector.Password);
                 httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
@@ -86,14 +105,14 @@ namespace Maya.AnyHttpClient.Helpers
             }
         }
 
-        internal static string ExtendBody(IHttpClientConnector httpClientConnector, object data)
+        internal static string? ExtendBody(IHttpClientConnector httpClientConnector, object data)
         {
             if (httpClientConnector.BodyProperties != null && httpClientConnector.BodyProperties.Any())
             {
-                data = data ?? new { };
+                data ??= new { };
 
-                var json = JsonConvert.SerializeObject(data);
-                var dictionary = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                var json = JsonSerializer.Serialize(data);
+                var dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
 
                 foreach (var prop in httpClientConnector.BodyProperties)
                 {
@@ -103,17 +122,17 @@ namespace Maya.AnyHttpClient.Helpers
                 data = dictionary;
             }
 
-            return (data == null) ? null : Newtonsoft.Json.JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.None,
-                new JsonSerializerSettings
+            return (data == null) ? null : JsonSerializer.Serialize(data,
+                new JsonSerializerOptions
                 {
-                    NullValueHandling = NullValueHandling.Ignore
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
                 });
         }
 
         internal static string CreateToken(string username, string password)
         {
-            if (String.IsNullOrEmpty(username)) throw new ArgumentNullException(nameof(username));
-            if (String.IsNullOrEmpty(password)) throw new ArgumentNullException(nameof(password));
+            if (string.IsNullOrEmpty(username)) throw new ArgumentNullException(nameof(username));
+            if (string.IsNullOrEmpty(password)) throw new ArgumentNullException(nameof(password));
 
             return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{username}:{password}"));
         }
@@ -121,9 +140,11 @@ namespace Maya.AnyHttpClient.Helpers
         internal static HttpClientHandler CreateHttpClientHanler()
         {
 #if DEBUG
-            var httpClientHandler = new HttpClientHandler();
-            // Return `true` to allow certificates that are untrusted/invalid
-            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            var httpClientHandler = new HttpClientHandler
+            {
+                // Return `true` to allow certificates that are untrusted/invalid
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            };
 #else
             var httpClientHandler = new HttpClientHandler();
 #endif
@@ -132,9 +153,10 @@ namespace Maya.AnyHttpClient.Helpers
 
         internal static HttpClient CreateHttpClient(HttpClientHandler httpClientHandler, IHttpClientConnector httpClientConnector)
         {
-            var httpClient = new HttpClient(httpClientHandler);
-
-            httpClient.Timeout = TimeSpan.FromSeconds(httpClientConnector.TimeoutSeconds);
+            var httpClient = new HttpClient(httpClientHandler)
+            {
+                Timeout = TimeSpan.FromSeconds(httpClientConnector.TimeoutSeconds)
+            };
 
             return httpClient;
         }

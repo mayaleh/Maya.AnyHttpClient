@@ -44,7 +44,7 @@ namespace Maya.AnyHttpClient.Model
         {
             try
             {
-                return Newtonsoft.Json.JsonConvert.SerializeObject(this);
+                return System.Text.Json.JsonSerializer.Serialize(this);
             }
             catch (Exception e)
             {
