@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Text.Json;
 
 namespace Maya.AnyHttpClient.Model
 {
@@ -19,5 +20,7 @@ namespace Maya.AnyHttpClient.Model
         public IEnumerable<KeyValue> BodyProperties { get; set; }
 
         public double TimeoutSeconds { get; set; }
+
+        public JsonSerializerOptions CustomJsonSerializerOptions { get; set; } = new JsonSerializerOptions();
     }
 }

@@ -89,7 +89,7 @@ namespace Maya.AnyHttpClient
                             return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                         }
 
-                        T reusultData = JsonSerializer.Deserialize<T>(content);
+                        T reusultData = JsonSerializer.Deserialize<T>(content, HttpClientConnenctor.CustomJsonSerializerOptions);
 
                         return Result<T, Exception>.Succeeded(reusultData);
                     }
@@ -98,7 +98,7 @@ namespace Maya.AnyHttpClient
 
                     if (Logger != null)
                     {
-                        Logger?.LogError($"action=ApiService.HttpGet, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
+                        Logger?.LogError($"action=ApiService.HttpGet, apiException={JsonSerializer.Serialize(httpResponseMessage, HttpClientConnenctor.CustomJsonSerializerOptions)}");
                     }
 
                     return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -191,7 +191,7 @@ namespace Maya.AnyHttpClient
                                 return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                             }
 
-                            T reusultData = JsonSerializer.Deserialize<T>(content);
+                            T reusultData = JsonSerializer.Deserialize<T>(content, HttpClientConnenctor.CustomJsonSerializerOptions);
 
                             return Result<T, Exception>.Succeeded(reusultData);
                         }
@@ -207,7 +207,7 @@ namespace Maya.AnyHttpClient
 
                         if (Logger != null)
                         {
-                            Logger?.LogError($"action={logAction}, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
+                            Logger?.LogError($"action={logAction}, apiException={JsonSerializer.Serialize(httpResponseMessage, HttpClientConnenctor.CustomJsonSerializerOptions)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -291,7 +291,7 @@ namespace Maya.AnyHttpClient
                                 return Result<T, Exception>.Succeeded((T)Convert.ChangeType(content, typeof(T)));
                             }
 
-                            T reusultData = JsonSerializer.Deserialize<T>(content);
+                            T reusultData = JsonSerializer.Deserialize<T>(content, HttpClientConnenctor.CustomJsonSerializerOptions);
 
                             return Result<T, Exception>.Succeeded(reusultData);
                         }
@@ -307,7 +307,7 @@ namespace Maya.AnyHttpClient
 
                         if (Logger != null)
                         {
-                            Logger?.LogError($"action=ApiService.HttpPut, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
+                            Logger?.LogError($"action=ApiService.HttpPut, apiException={JsonSerializer.Serialize(httpResponseMessage, HttpClientConnenctor.CustomJsonSerializerOptions)}");
                         }
 
                         return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));
@@ -398,7 +398,7 @@ namespace Maya.AnyHttpClient
 
                     if (Logger != null)
                     {
-                        Logger?.LogError($"action={logAction}, apiException={JsonSerializer.Serialize(httpResponseMessage)}");
+                        Logger?.LogError($"action={logAction}, apiException={JsonSerializer.Serialize(httpResponseMessage, HttpClientConnenctor.CustomJsonSerializerOptions)}");
                     }
 
                     return Result<T, Exception>.Failed(new Exception(await httpResponseMessage.Content.ReadAsStringAsync()));

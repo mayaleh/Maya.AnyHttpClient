@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Text.Json;
 
 namespace Maya.AnyHttpClient.Model
 {
@@ -19,5 +20,7 @@ namespace Maya.AnyHttpClient.Model
         IEnumerable<KeyValue> Headers { get; set; }
 
         IEnumerable<KeyValue> BodyProperties { get; set; }
+
+        JsonSerializerOptions CustomJsonSerializerOptions { get; }
     }
 }
