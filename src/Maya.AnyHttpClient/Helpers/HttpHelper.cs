@@ -111,8 +111,8 @@ namespace Maya.AnyHttpClient.Helpers
             {
                 data ??= new { };
 
-                var json = JsonSerializer.Serialize(data);
-                var dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                var json = JsonSerializer.Serialize(data, httpClientConnector.CustomJsonSerializerOptions);
+                var dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(json, httpClientConnector.CustomJsonSerializerOptions);
 
                 foreach (var prop in httpClientConnector.BodyProperties)
                 {
@@ -122,11 +122,7 @@ namespace Maya.AnyHttpClient.Helpers
                 data = dictionary;
             }
 
-            return (data == null) ? null : JsonSerializer.Serialize(data,
-                new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-                });
+            return (data == null) ? null : JsonSerializer.Serialize(data, httpClientConnector.CustomJsonSerializerOptions);
         }
 
         internal static string CreateToken(string username, string password)
